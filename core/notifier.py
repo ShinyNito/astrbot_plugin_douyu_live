@@ -7,6 +7,8 @@ from astrbot.api import logger
 from astrbot.api.event import MessageEventResult
 from astrbot.api.message_components import AtAll, Plain
 
+from ..utils.constants import get_gift_name
+
 if TYPE_CHECKING:
     from astrbot.api import star
 
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
 class Notifier:
     """通知发送器
     
-    负责构建和发送开播通知消息。
+    负责构建和发送开播通知、礼物通知消息。
     """
 
     def __init__(self, context: "star.Context"):
@@ -58,6 +60,43 @@ class Notifier:
             f"快去观看吧！"
         )
 
+    def build_gift_notification(
+        self,
+        room_id: int,
+        room_name: str,
+        user_name: str,
+        gift_id: str | int,
+        gift_count: int,
+        timestamp: float | None = None,
+    ) -> str:
+        """构建礼物通知消息文本
+        
+        Args:
+            room_id: 房间号
+            room_name: 房间/主播名称
+            user_name: 送礼用户昵称
+            gift_id: 礼物 ID
+            gift_count: 礼物数量
+            timestamp: 时间戳，默认当前时间
+            
+        Returns:
+            格式化的礼物通知消息
+        """
+        if timestamp is None:
+            timestamp = time.time()
+        
+        time_str = time.strftime("%H:%M:%S", time.localtime(timestamp))
+        gift_name = get_gift_name(gift_id)
+
+        return (
+            f"🎁 斗鱼直播礼物播报\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"📺 直播间: {room_name}\n"
+            f"👤 用户: {user_name}\n"
+            f"🎁 礼物: {gift_name} x{gift_count}\n"
+            f"⏰ 时间: {time_str}"
+        )
+
     async def send_to_subscribers(
         self,
         subscribers: set[str],
@@ -79,6 +118,6 @@ class Notifier:
                     result.chain.append(Plain("\n"))
                 result.chain.append(Plain(message))
                 await self.context.send_message(umo, result)
-                logger.info(f"已发送开播通知到: {umo}")
+                logger.info(f"已发送通知到: {umo}")
             except Exception as e:
                 logger.error(f"发送通知失败 ({umo}): {e}")
