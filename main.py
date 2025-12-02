@@ -1,6 +1,6 @@
 """AstrBot 斗鱼直播通知插件
 
-支持多房间监控、订阅推送、@全体成员等功能。
+支持多房间监控、订阅推送、@全体成员、礼物播报等功能。
 """
 
 import asyncio
@@ -28,6 +28,7 @@ class Main(star.Star):
     - /douyu status - 查看监控状态
     - /douyu restart [房间号] - 重启监控（管理员）
     - /douyu atall <房间号> [on/off] - 设置@全体（管理员）
+    - /douyu gift <房间号> [on/off] - 开启/关闭礼物播报（管理员）
     """
 
     def __init__(self, context: star.Context) -> None:
@@ -75,7 +76,11 @@ class Main(star.Star):
         if room_id in self.monitors:
             return True
 
-        monitor = DouyuMonitor(room_id, self._on_live_start)
+        monitor = DouyuMonitor(
+            room_id,
+            live_callback=self._on_live_start,
+            gift_callback=self._on_gift,
+        )
         if monitor.start():
             self.monitors[room_id] = monitor
             return True
@@ -107,6 +112,53 @@ class Main(star.Star):
             )
         else:
             logger.error("事件循环不可用，无法发送开播通知")
+
+    def _on_gift(self, room_id: int, msg: dict) -> None:
+        """礼物回调 - 发送礼物播报给所有订阅者
+        
+        Args:
+            room_id: 房间号
+            msg: 礼物消息，包含:
+                - nn: 用户昵称
+                - uid: 用户 ID
+                - gfid: 礼物 ID
+                - gfcnt / hits: 礼物数量
+        """
+        room_info = self.data.get_room(room_id)
+        
+        # 检查是否开启了礼物播报
+        if not room_info or not room_info.gift_notify:
+            return
+        
+        subscribers = self.data.get_subscribers(room_id)
+        if not subscribers:
+            return
+        
+        # 解析礼物信息
+        user_name = msg.get("nn", "未知用户")
+        gift_id = msg.get("gfid", "0")
+        # 礼物数量可能在 gfcnt 或 hits 字段
+        gift_count = int(msg.get("gfcnt", msg.get("hits", "1")))
+        
+        room_name = room_info.name
+        
+        # 构建礼物通知
+        notification = self.notifier.build_gift_notification(
+            room_id=room_id,
+            room_name=room_name,
+            user_name=user_name,
+            gift_id=gift_id,
+            gift_count=gift_count,
+        )
+        
+        # 异步发送通知（从子线程调度到主事件循环）
+        if self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                self.notifier.send_to_subscribers(subscribers, notification, at_all=False),
+                self.loop,
+            )
+        else:
+            logger.error("事件循环不可用，无法发送礼物通知")
 
     # ==================== 命令组 ====================
 
@@ -190,11 +242,12 @@ class Main(star.Star):
             sub_count = len(self.data.get_subscribers(room_id))
             status = "🟢 运行中" if room_id in self.monitors else "🔴 已停止"
             at_all_status = "✅" if info.at_all else "❌"
+            gift_status = "✅" if info.gift_notify else "❌"
             lines.append(
                 f"{idx}. {info.name}\n"
                 f"   房间号: {room_id}\n"
                 f"   订阅数: {sub_count}\n"
-                f"   @全体: {at_all_status}\n"
+                f"   @全体: {at_all_status} | 礼物播报: {gift_status}\n"
                 f"   状态: {status}"
             )
 
@@ -335,3 +388,31 @@ class Main(star.Star):
 
         status_text = "开启" if new_status else "关闭"
         yield event.plain_result(f"✅ 直播间 {room_info.name}({room_id})\n@全体成员 已{status_text}")
+
+    @douyu.command("gift")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def douyu_gift(self, event: AstrMessageEvent, room_id: int, enable: str = ""):
+        """开启/关闭礼物播报（管理员）
+
+        Args:
+            room_id: 斗鱼直播间房间号
+            enable: on/off 或留空切换状态
+        """
+        room_info = self.data.get_room(room_id)
+        if not room_info:
+            yield event.plain_result(f"⚠️ 直播间 {room_id} 不在监控列表中")
+            return
+
+        current = room_info.gift_notify
+
+        if enable.lower() == "on":
+            new_status = True
+        elif enable.lower() == "off":
+            new_status = False
+        else:
+            new_status = not current
+
+        self.data.update_room(room_id, gift_notify=new_status)
+
+        status_text = "开启" if new_status else "关闭"
+        yield event.plain_result(f"✅ 直播间 {room_info.name}({room_id})\n🎁 礼物播报 已{status_text}")
