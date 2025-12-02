@@ -16,7 +16,7 @@ class RoomInfo(TypedDict, total=False):
 
 class DouyuAPI:
     """斗鱼 API 封装类
-    
+
     提供获取直播间信息等功能。
     使用公开的 betard 接口，无需鉴权。
     """
@@ -53,10 +53,10 @@ class DouyuAPI:
     @classmethod
     async def get_streamer_name(cls, room_id: int) -> str:
         """获取主播名称
-        
+
         Args:
             room_id: 斗鱼直播间房间号
-            
+
         Returns:
             主播名称，获取失败返回空字符串
         """
@@ -64,3 +64,4 @@ class DouyuAPI:
         if info:
             return info.get("owner_name") or info.get("nickname") or ""
         return ""
+

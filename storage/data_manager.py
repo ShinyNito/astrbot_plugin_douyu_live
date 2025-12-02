@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from astrbot.api import logger
 from astrbot.api.star import StarTools
@@ -16,31 +16,31 @@ if TYPE_CHECKING:
 
 class DataManager:
     """数据管理器
-    
+
     负责插件数据的加载、保存和管理。
     数据存储在 JSON 文件中。
     """
 
     def __init__(self, plugin_name: str = "astrbot_plugin_douyu_live"):
         """初始化数据管理器
-        
+
         Args:
             plugin_name: 插件名称，用于确定数据目录
         """
         self.data_dir: Path = StarTools.get_data_dir(plugin_name)
         self.data_file: Path = self.data_dir / "douyu_live_data.json"
-        
+
         # 数据结构 - 使用 dict 存储，运行时转换为 RoomInfo
         self.subscriptions: dict[int, set[str]] = {}  # room_id -> set of umo
         self.room_info: dict[int, RoomInfo] = {}  # room_id -> RoomInfo
-        
+
         # 加载数据
         self.load()
 
     def load(self) -> None:
         """从文件加载数据"""
         from ..models.room import RoomInfo as RoomInfoClass
-        
+
         if not os.path.exists(self.data_file):
             self.subscriptions = {}
             self.room_info = {}
@@ -53,8 +53,9 @@ class DataManager:
                 self.subscriptions = {
                     int(k): set(v) for k, v in data.get("subscriptions", {}).items()
                 }
+                # 使用 from_dict 以兼容旧版本数据
                 self.room_info = {
-                    int(k): RoomInfoClass(**v) for k, v in data.get("room_info", {}).items()
+                    int(k): RoomInfoClass.from_dict(v) for k, v in data.get("room_info", {}).items()
                 }
         except Exception as e:
             logger.error(f"加载斗鱼直播数据失败: {e}")
@@ -81,7 +82,7 @@ class DataManager:
 
     def add_room(self, room_id: int, info: RoomInfo) -> None:
         """添加房间
-        
+
         Args:
             room_id: 房间号
             info: 房间信息
@@ -93,10 +94,10 @@ class DataManager:
 
     def remove_room(self, room_id: int) -> bool:
         """删除房间
-        
+
         Args:
             room_id: 房间号
-            
+
         Returns:
             是否成功删除
         """
@@ -110,10 +111,10 @@ class DataManager:
 
     def get_room(self, room_id: int) -> RoomInfo | None:
         """获取房间信息
-        
+
         Args:
             room_id: 房间号
-            
+
         Returns:
             房间信息，不存在返回 None
         """
@@ -129,11 +130,11 @@ class DataManager:
 
     def update_room(self, room_id: int, **kwargs: Any) -> bool:
         """更新房间信息
-        
+
         Args:
             room_id: 房间号
             **kwargs: 要更新的字段
-            
+
         Returns:
             是否成功更新
         """
@@ -149,11 +150,11 @@ class DataManager:
 
     def subscribe(self, room_id: int, umo: str) -> bool:
         """添加订阅
-        
+
         Args:
             room_id: 房间号
             umo: unified_msg_origin
-            
+
         Returns:
             是否成功（False 表示已订阅）
         """
@@ -167,11 +168,11 @@ class DataManager:
 
     def unsubscribe(self, room_id: int, umo: str) -> bool:
         """取消订阅
-        
+
         Args:
             room_id: 房间号
             umo: unified_msg_origin
-            
+
         Returns:
             是否成功（False 表示未订阅）
         """
@@ -198,3 +199,4 @@ class DataManager:
     def get_total_subscriptions(self) -> int:
         """获取总订阅数"""
         return sum(len(s) for s in self.subscriptions.values())
+

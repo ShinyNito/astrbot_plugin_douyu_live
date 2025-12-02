@@ -1,13 +1,13 @@
 """房间信息数据模型"""
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
 @dataclass
 class RoomInfo:
     """直播间信息
-    
+
     Attributes:
         name: 主播/房间名称
         added_by: 添加者 ID
@@ -38,3 +38,4 @@ class RoomInfo:
             gift_notify=data.get("gift_notify", False),
             high_value_only=data.get("high_value_only", True),
         )
+

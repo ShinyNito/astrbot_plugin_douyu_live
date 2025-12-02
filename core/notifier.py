@@ -15,13 +15,13 @@ if TYPE_CHECKING:
 
 class Notifier:
     """通知发送器
-    
+
     负责构建和发送开播通知、礼物通知消息。
     """
 
     def __init__(self, context: "star.Context"):
         """初始化通知器
-        
+
         Args:
             context: AstrBot 上下文
         """
@@ -34,18 +34,18 @@ class Notifier:
         timestamp: float | None = None,
     ) -> str:
         """构建开播通知消息文本
-        
+
         Args:
             room_id: 房间号
             room_name: 房间/主播名称
             timestamp: 时间戳，默认当前时间
-            
+
         Returns:
             格式化的通知消息
         """
         if timestamp is None:
             timestamp = time.time()
-        
+
         time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
         live_url = f"https://www.douyu.com/{room_id}"
 
@@ -70,7 +70,7 @@ class Notifier:
         timestamp: float | None = None,
     ) -> str:
         """构建礼物通知消息文本
-        
+
         Args:
             room_id: 房间号
             room_name: 房间/主播名称
@@ -78,13 +78,13 @@ class Notifier:
             gift_id: 礼物 ID
             gift_count: 礼物数量
             timestamp: 时间戳，默认当前时间
-            
+
         Returns:
             格式化的礼物通知消息
         """
         if timestamp is None:
             timestamp = time.time()
-        
+
         time_str = time.strftime("%H:%M:%S", time.localtime(timestamp))
         gift_name = get_gift_name(gift_id)
 
@@ -104,7 +104,7 @@ class Notifier:
         at_all: bool = False,
     ) -> None:
         """发送通知给所有订阅者
-        
+
         Args:
             subscribers: 订阅者的 unified_msg_origin 集合
             message: 通知消息内容
@@ -121,3 +121,4 @@ class Notifier:
                 logger.info(f"已发送通知到: {umo}")
             except Exception as e:
                 logger.error(f"发送通知失败 ({umo}): {e}")
+

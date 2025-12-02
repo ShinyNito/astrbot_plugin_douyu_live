@@ -5,14 +5,13 @@
 
 import asyncio
 import time
-from typing import Optional
 
 from astrbot.api import logger, star
 from astrbot.api.event import AstrMessageEvent, filter
 
-from .core import DouyuMonitor, DouyuAPI, Notifier, PYDOUYU_AVAILABLE
-from .storage import DataManager
+from .core import PYDOUYU_AVAILABLE, DouyuAPI, DouyuMonitor, Notifier
 from .models import RoomInfo
+from .storage import DataManager
 from .utils.constants import is_high_value_gift
 
 
@@ -36,10 +35,10 @@ class Main(star.Star):
     def __init__(self, context: star.Context) -> None:
         super().__init__(context)
         self.context = context
-        
+
         # 主事件循环引用（用于子线程回调）
-        self.loop: Optional[asyncio.AbstractEventLoop] = None
-        
+        self.loop: asyncio.AbstractEventLoop | None = None
+
         # 初始化模块
         self.data = DataManager()
         self.notifier = Notifier(context)
@@ -117,7 +116,7 @@ class Main(star.Star):
 
     def _on_gift(self, room_id: int, msg: dict) -> None:
         """礼物回调 - 发送礼物播报给所有订阅者
-        
+
         Args:
             room_id: 房间号
             msg: 礼物消息，包含:
@@ -127,29 +126,29 @@ class Main(star.Star):
                 - gfcnt / hits: 礼物数量
         """
         room_info = self.data.get_room(room_id)
-        
+
         # 检查是否开启了礼物播报
         if not room_info or not room_info.gift_notify:
             return
-        
+
         # 解析礼物 ID
         gift_id = msg.get("gfid", "0")
-        
+
         # 如果开启了高价值过滤，只播报飞机及以上的礼物
         if room_info.high_value_only and not is_high_value_gift(gift_id):
             return
-        
+
         subscribers = self.data.get_subscribers(room_id)
         if not subscribers:
             return
-        
+
         # 解析礼物信息
         user_name = msg.get("nn", "未知用户")
         # 礼物数量可能在 gfcnt 或 hits 字段
         gift_count = int(msg.get("gfcnt", msg.get("hits", "1")))
-        
+
         room_name = room_info.name
-        
+
         # 构建礼物通知
         notification = self.notifier.build_gift_notification(
             room_id=room_id,
@@ -158,7 +157,7 @@ class Main(star.Star):
             gift_id=gift_id,
             gift_count=gift_count,
         )
-        
+
         # 异步发送通知（从子线程调度到主事件循环）
         if self.loop and self.loop.is_running():
             asyncio.run_coroutine_threadsafe(
@@ -340,7 +339,7 @@ class Main(star.Star):
 
     @douyu.command("restart")
     @filter.permission_type(filter.PermissionType.ADMIN)
-    async def douyu_restart(self, event: AstrMessageEvent, room_id: Optional[int] = None):
+    async def douyu_restart(self, event: AstrMessageEvent, room_id: int | None = None):
         """重启监控（管理员）
 
         Args:
@@ -468,3 +467,4 @@ class Main(star.Star):
                 f"✅ 直播间 {room_info.name}({room_id})\n"
                 f"🎁 礼物过滤: 播报所有礼物"
             )
+

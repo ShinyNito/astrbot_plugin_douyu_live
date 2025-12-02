@@ -55,7 +55,6 @@ GIFT_NAMES: dict[str, str] = {
     "126": "老司机",
     "186": "办卡",
     "194": "帐篷",
-    "714": "告白",
     "717": "氧气女孩",
     "718": "大气",
     "719": "全明星",
@@ -80,10 +79,10 @@ HIGH_VALUE_GIFT_IDS: set[str] = {
 
 def is_high_value_gift(gift_id: str | int) -> bool:
     """判断是否为高价值礼物（飞机及以上）
-    
+
     Args:
         gift_id: 礼物 ID
-        
+
     Returns:
         是否为高价值礼物
     """
@@ -92,11 +91,12 @@ def is_high_value_gift(gift_id: str | int) -> bool:
 
 def get_gift_name(gift_id: str | int) -> str:
     """获取礼物名称
-    
+
     Args:
         gift_id: 礼物 ID
-        
+
     Returns:
         礼物名称
     """
     return GIFT_NAMES.get(str(gift_id), f"{DEFAULT_GIFT_NAME}({gift_id})")
+

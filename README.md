@@ -4,7 +4,7 @@
 
 <br>
 <div align="center">
-  <a href="#更新日志"><img src="https://img.shields.io/badge/VERSION-v1.2.1-E91E63?style=for-the-badge" alt="Version"></a>
+  <a href="#更新日志"><img src="https://img.shields.io/badge/VERSION-v1.2.2-E91E63?style=for-the-badge" alt="Version"></a>
   <a href="https://github.com/Soulter/AstrBot"><img src="https://img.shields.io/badge/AstrBot-Compatible-00BFA5?style=for-the-badge&logo=robot&logoColor=white" alt="AstrBot Compatible"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/PYTHON-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
   <a href="https://pypi.org/project/pydouyu/"><img src="https://img.shields.io/badge/PYDOUYU-Required-9C27B0?style=for-the-badge" alt="pydouyu"></a>

@@ -1,7 +1,8 @@
 """斗鱼直播监控器模块"""
 
+import time
+from collections.abc import Callable
 from threading import Thread
-from typing import Callable
 
 from astrbot.api import logger
 
@@ -17,7 +18,7 @@ except ImportError:
 
 class DouyuMonitor:
     """斗鱼直播监控器
-    
+
     使用 pydouyu 库监控指定直播间的开播状态和礼物消息，
     当检测到开播或收到礼物时通过回调函数通知上层。
     """
@@ -29,7 +30,7 @@ class DouyuMonitor:
         gift_callback: Callable[[int, dict], None] | None = None,
     ):
         """初始化监控器
-        
+
         Args:
             room_id: 斗鱼直播间房间号
             live_callback: 开播回调函数，参数为 (room_id, msg)
@@ -38,14 +39,15 @@ class DouyuMonitor:
         self.room_id = room_id
         self.live_callback = live_callback
         self.gift_callback = gift_callback
-        self.client = None
+        self.client: Client | None = None
         self.running = False
         self.thread: Thread | None = None
         self.last_live_status = False  # 上次的直播状态，防止重复通知
+        self._stop_flag = False  # 停止标志
 
     def _rss_handler(self, msg: dict) -> None:
         """处理直播状态变化
-        
+
         Args:
             msg: pydouyu 的 rss 事件消息
         """
@@ -67,10 +69,10 @@ class DouyuMonitor:
 
     def _dgb_handler(self, msg: dict) -> None:
         """处理礼物消息
-        
+
         Args:
             msg: pydouyu 的 dgb 礼物消息
-            
+
         消息字段说明：
             - nn: 用户昵称
             - uid: 用户 ID
@@ -87,20 +89,44 @@ class DouyuMonitor:
     def _run_client(self) -> None:
         """在线程中运行客户端"""
         try:
+            # 创建 Client 实例
             self.client = Client(room_id=self.room_id)
             # 注册直播状态处理器
             self.client.add_handler("rss", self._rss_handler)
             # 注册礼物消息处理器
             self.client.add_handler("dgb", self._dgb_handler)
             self.running = True
+            logger.info(f"斗鱼监控器 {self.room_id} 连接中...")
+
+            # client.start() 会启动内部线程，立即返回
+            # 内部线程 (message_worker, heartbeat_worker) 会处理重连
             self.client.start()
+            logger.info(f"斗鱼监控器 {self.room_id} 已启动")
+
+            # 等待内部线程结束或收到停止信号
+            # message_worker 是一个 Thread，我们等待它
+            if hasattr(self.client, "message_worker") and self.client.message_worker:
+                while not self._stop_flag and self.client.message_worker.is_alive():
+                    time.sleep(1)
+
         except Exception as e:
             logger.error(f"斗鱼监控器 {self.room_id} 运行出错: {e}")
+        finally:
             self.running = False
+            self._cleanup_client()
+
+    def _cleanup_client(self) -> None:
+        """清理客户端资源"""
+        if self.client:
+            try:
+                self.client.stop()
+            except Exception:
+                pass
+            self.client = None
 
     def start(self) -> bool:
         """启动监控
-        
+
         Returns:
             是否成功启动
         """
@@ -111,17 +137,15 @@ class DouyuMonitor:
         if self.running:
             return True
 
+        self._stop_flag = False
         self.thread = Thread(target=self._run_client, daemon=True)
         self.thread.start()
-        logger.info(f"斗鱼直播间 {self.room_id} 监控已启动")
         return True
 
     def stop(self) -> None:
         """停止监控"""
+        self._stop_flag = True
         self.running = False
-        if self.client:
-            try:
-                self.client.stop()
-            except Exception:
-                pass
+        self._cleanup_client()
         logger.info(f"斗鱼直播间 {self.room_id} 监控已停止")
+
