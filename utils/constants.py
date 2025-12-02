@@ -66,6 +66,29 @@ GIFT_NAMES: dict[str, str] = {
 # 默认礼物名称（当 ID 未知时）
 DEFAULT_GIFT_NAME = "神秘礼物"
 
+# 高价值礼物 ID 集合（飞机及以上，值得播报的礼物）
+# 飞机=100元, 火箭=500元, 超级火箭=1000元, 跑车=1000元
+HIGH_VALUE_GIFT_IDS: set[str] = {
+    "195",  # 飞机 (100元)
+    "196",  # 火箭 (500元)
+    "268",  # 超级火箭 (1000元)
+    "64",   # 跑车 (1000元)
+    "63",   # 任性一下
+    "123",  # 佛跳墙
+}
+
+
+def is_high_value_gift(gift_id: str | int) -> bool:
+    """判断是否为高价值礼物（飞机及以上）
+    
+    Args:
+        gift_id: 礼物 ID
+        
+    Returns:
+        是否为高价值礼物
+    """
+    return str(gift_id) in HIGH_VALUE_GIFT_IDS
+
 
 def get_gift_name(gift_id: str | int) -> str:
     """获取礼物名称

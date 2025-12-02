@@ -13,6 +13,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from .core import DouyuMonitor, DouyuAPI, Notifier, PYDOUYU_AVAILABLE
 from .storage import DataManager
 from .models import RoomInfo
+from .utils.constants import is_high_value_gift
 
 
 class Main(star.Star):
