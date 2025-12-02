@@ -30,6 +30,7 @@ class Main(star.Star):
     - /douyu restart [房间号] - 重启监控（管理员）
     - /douyu atall <房间号> [on/off] - 设置@全体（管理员）
     - /douyu gift <房间号> [on/off] - 开启/关闭礼物播报（管理员）
+    - /douyu giftfilter <房间号> [on/off] - 开启/关闭高价值礼物过滤（管理员）
     """
 
     def __init__(self, context: star.Context) -> None:
@@ -250,11 +251,12 @@ class Main(star.Star):
             status = "🟢 运行中" if room_id in self.monitors else "🔴 已停止"
             at_all_status = "✅" if info.at_all else "❌"
             gift_status = "✅" if info.gift_notify else "❌"
+            gift_filter = "仅高价值" if info.high_value_only else "全部"
             lines.append(
                 f"{idx}. {info.name}\n"
                 f"   房间号: {room_id}\n"
                 f"   订阅数: {sub_count}\n"
-                f"   @全体: {at_all_status} | 礼物播报: {gift_status}\n"
+                f"   @全体: {at_all_status} | 礼物: {gift_status}({gift_filter})\n"
                 f"   状态: {status}"
             )
 
@@ -422,4 +424,47 @@ class Main(star.Star):
         self.data.update_room(room_id, gift_notify=new_status)
 
         status_text = "开启" if new_status else "关闭"
-        yield event.plain_result(f"✅ 直播间 {room_info.name}({room_id})\n🎁 礼物播报 已{status_text}")
+        filter_status = "仅高价值" if room_info.high_value_only else "全部"
+        yield event.plain_result(
+            f"✅ 直播间 {room_info.name}({room_id})\n"
+            f"🎁 礼物播报 已{status_text}\n"
+            f"📊 过滤模式: {filter_status}"
+        )
+
+    @douyu.command("giftfilter")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def douyu_giftfilter(self, event: AstrMessageEvent, room_id: int, enable: str = ""):
+        """开启/关闭高价值礼物过滤（管理员）
+
+        开启后只播报飞机及以上的礼物，关闭后播报所有礼物。
+
+        Args:
+            room_id: 斗鱼直播间房间号
+            enable: on/off 或留空切换状态
+        """
+        room_info = self.data.get_room(room_id)
+        if not room_info:
+            yield event.plain_result(f"⚠️ 直播间 {room_id} 不在监控列表中")
+            return
+
+        current = room_info.high_value_only
+
+        if enable.lower() == "on":
+            new_status = True
+        elif enable.lower() == "off":
+            new_status = False
+        else:
+            new_status = not current
+
+        self.data.update_room(room_id, high_value_only=new_status)
+
+        if new_status:
+            yield event.plain_result(
+                f"✅ 直播间 {room_info.name}({room_id})\n"
+                f"🎁 礼物过滤: 仅播报高价值礼物（飞机及以上）"
+            )
+        else:
+            yield event.plain_result(
+                f"✅ 直播间 {room_info.name}({room_id})\n"
+                f"🎁 礼物过滤: 播报所有礼物"
+            )
