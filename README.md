@@ -1,14 +1,30 @@
+<div align="center">
+  <img src="LOGO.png" alt="AstrBot Douyu Plugin Logo" width="160" />
+</div>
+
 # <div align="center">AstrBot 斗鱼直播通知插件</div>
 
-<div align="center"><em>多房间监控，智能推送，斗鱼开播通知全自动！</em></div>
-
-<br>
 <div align="center">
-  <a href="#更新日志"><img src="https://img.shields.io/badge/VERSION-v1.3.0-E91E63?style=for-the-badge" alt="Version"></a>
-  <a href="https://github.com/Soulter/AstrBot"><img src="https://img.shields.io/badge/AstrBot-Compatible-00BFA5?style=for-the-badge&logo=robot&logoColor=white" alt="AstrBot Compatible"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/PYTHON-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
-  <a href="https://pypi.org/project/pydouyu/"><img src="https://img.shields.io/badge/PYDOUYU-Required-9C27B0?style=for-the-badge" alt="pydouyu"></a>
+  <a href="#插件简介">插件简介</a> •
+  <a href="#功能特性">功能特性</a> •
+  <a href="#命令列表">命令列表</a> •
+  <a href="CHANGELOG.md">更新日志</a>
 </div>
+
+<div align="center">
+  <a href="#更新日志"><img src="https://img.shields.io/badge/version-v1.3.0-9644F4?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/GEMILUXVII/astrbot_plugin_douyu_live/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-E53935?style=for-the-badge" alt="License"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://github.com/AstrBotDevs/AstrBot"><img src="https://img.shields.io/badge/AstrBot-Compatible-00BFA5?style=for-the-badge&logo=robot&logoColor=white" alt="AstrBot Compatible"></a>
+</div>
+
+<div align="center">
+  <a href="https://www.douyu.com/"><img src="https://img.shields.io/badge/Douyu-Live-FF9800?style=for-the-badge&logo=livejournal&logoColor=white" alt="Douyu"></a>
+  <a href="https://github.com/NapNeko/NapCatQQ"><img src="https://img.shields.io/badge/NapCat-QQ-2196F3?style=for-the-badge&logo=qq&logoColor=white" alt="NapCat"></a>
+  <a href="https://github.com/GEMILUXVII/astrbot_plugin_douyu_live/commits/master"><img src="https://img.shields.io/badge/updated-2025--12--02-0097A7?style=for-the-badge&logo=calendar&logoColor=white" alt="Last Updated"></a>
+</div>
+
+<div align="center"><em>多房间监控，智能推送，斗鱼开播通知全自动！</em></div>
 
 ## 插件简介
 
