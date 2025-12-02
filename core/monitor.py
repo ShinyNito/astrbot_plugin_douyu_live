@@ -49,6 +49,7 @@ class DouyuMonitor:
         self.last_live_status: bool | None = None
         self._stop_flag = False  # 停止标志
         self.live_start_time: float | None = None  # 开播时间戳
+        self._has_announced_live = False  # 是否已发布开播通知
         # 上次通知时间，防止短时间内重复通知
         self._last_notify_time: float = 0.0
         self._notify_cooldown = 30.0  # 通知冷却时间（秒）
@@ -66,7 +67,7 @@ class DouyuMonitor:
             is_live = ss == "1" and ivl == "0"
             now = time.time()
 
-            # 首次收到状态消息，只记录不通知
+            # 首次收到状态消息，若已开播则立即通知
             if self.last_live_status is None:
                 logger.info(
                     f"斗鱼直播间 {self.room_id} 当前状态: "
@@ -75,6 +76,11 @@ class DouyuMonitor:
                 self.last_live_status = is_live
                 if is_live:
                     self.live_start_time = now
+                    self._has_announced_live = True
+                    self._last_notify_time = now
+                    logger.info(f"斗鱼直播间 {self.room_id} 开播了! (初始状态)")
+                    if self.live_callback:
+                        self.live_callback(self.room_id, msg)
                 return
 
             # 状态没有变化，忽略
@@ -86,9 +92,9 @@ class DouyuMonitor:
             if time_since_notify < self._notify_cooldown:
                 logger.debug(
                     f"斗鱼直播间 {self.room_id} 状态变化但在冷却期内 "
-                    f"({time_since_notify:.1f}s < {self._notify_cooldown}s)，跳过通知"
+                    f"({time_since_notify:.1f}s < {self._notify_cooldown}s)，忽略"
                 )
-                self.last_live_status = is_live
+                # 冷却期内不更新状态，保持原状态不变
                 return
 
             if is_live and not self.last_live_status:
@@ -96,6 +102,7 @@ class DouyuMonitor:
                 logger.info(f"斗鱼直播间 {self.room_id} 开播了!")
                 self.live_start_time = now
                 self._last_notify_time = now
+                self._has_announced_live = True
                 if self.live_callback:
                     self.live_callback(self.room_id, msg)
 
@@ -106,9 +113,15 @@ class DouyuMonitor:
                 if self.live_start_time:
                     duration = now - self.live_start_time
                     self.live_start_time = None
-                self._last_notify_time = now
-                if self.offline_callback:
-                    self.offline_callback(self.room_id, duration)
+                if self._has_announced_live:
+                    self._last_notify_time = now
+                    if self.offline_callback:
+                        self.offline_callback(self.room_id, duration)
+                else:
+                    logger.debug(
+                        f"斗鱼直播间 {self.room_id} 检测到下播，但尚未发布开播通知，忽略"
+                    )
+                self._has_announced_live = False
 
             self.last_live_status = is_live
         except Exception as e:
