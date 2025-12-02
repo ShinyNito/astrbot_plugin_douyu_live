@@ -4,6 +4,8 @@ import os
 import time
 from threading import Thread
 
+import httpx
+
 from astrbot.api import logger, star
 from astrbot.api.event import AstrMessageEvent, MessageEventResult, filter
 from astrbot.api.message_components import AtAll, Plain
@@ -80,6 +82,32 @@ class DouyuMonitor:
             except Exception:
                 pass
         logger.info(f"斗鱼直播间 {self.room_id} 监控已停止")
+
+
+async def fetch_room_info(room_id: int) -> dict | None:
+    """从斗鱼 API 获取直播间信息
+
+    Args:
+        room_id: 斗鱼直播间房间号
+
+    Returns:
+        包含 owner_name, room_name 等信息的字典，获取失败返回 None
+    """
+    url = f"https://www.douyu.com/betard/{room_id}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                room = data.get("room", {})
+                return {
+                    "owner_name": room.get("owner_name", ""),
+                    "nickname": room.get("nickname", ""),
+                    "room_name": room.get("room_name", ""),
+                }
+    except Exception as e:
+        logger.warning(f"获取斗鱼直播间 {room_id} 信息失败: {e}")
+    return None
 
 
 class Main(star.Star):
