@@ -131,13 +131,19 @@ class Main(star.Star):
         if not room_info or not room_info.gift_notify:
             return
         
+        # 解析礼物 ID
+        gift_id = msg.get("gfid", "0")
+        
+        # 如果开启了高价值过滤，只播报飞机及以上的礼物
+        if room_info.high_value_only and not is_high_value_gift(gift_id):
+            return
+        
         subscribers = self.data.get_subscribers(room_id)
         if not subscribers:
             return
         
         # 解析礼物信息
         user_name = msg.get("nn", "未知用户")
-        gift_id = msg.get("gfid", "0")
         # 礼物数量可能在 gfcnt 或 hits 字段
         gift_count = int(msg.get("gfcnt", msg.get("hits", "1")))
         
