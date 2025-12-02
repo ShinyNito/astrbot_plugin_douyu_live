@@ -97,6 +97,51 @@ class Notifier:
             f"⏰ 时间: {time_str}"
         )
 
+    def build_offline_notification(
+        self,
+        room_id: int,
+        room_name: str,
+        duration_seconds: float,
+        timestamp: float | None = None,
+    ) -> str:
+        """构建下播通知消息文本
+
+        Args:
+            room_id: 房间号
+            room_name: 房间/主播名称
+            duration_seconds: 直播时长（秒）
+            timestamp: 时间戳，默认当前时间
+
+        Returns:
+            格式化的下播通知消息
+        """
+        if timestamp is None:
+            timestamp = time.time()
+
+        time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+
+        # 计算时长
+        if duration_seconds > 0:
+            hours = int(duration_seconds // 3600)
+            minutes = int((duration_seconds % 3600) // 60)
+            if hours > 0:
+                duration_str = f"{hours}小时{minutes}分钟"
+            else:
+                duration_str = f"{minutes}分钟"
+        else:
+            duration_str = "未知"
+
+        return (
+            f"📴 斗鱼直播下播通知\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"👤 主播: {room_name}\n"
+            f"🔢 房间号: {room_id}\n"
+            f"⏱️ 本次直播时长: {duration_str}\n"
+            f"⏰ 下播时间: {time_str}\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"感谢观看，下次再见！"
+        )
+
     async def send_to_subscribers(
         self,
         subscribers: set[str],
