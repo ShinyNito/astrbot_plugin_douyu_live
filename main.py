@@ -281,7 +281,7 @@ class Main(star.Star):
 
         Args:
             room_id: 斗鱼直播间房间号
-            name: 直播间名称（可选）
+            name: 直播间名称（可选，不填则自动获取）
         """
         if not PYDOUYU_AVAILABLE:
             yield event.plain_result(
@@ -293,9 +293,18 @@ class Main(star.Star):
             yield event.plain_result(f"⚠️ 直播间 {room_id} 已在监控列表中")
             return
 
+        # 如果没有提供名称，尝试从 API 获取
+        room_name = name
+        if not room_name:
+            api_info = await fetch_room_info(room_id)
+            if api_info:
+                room_name = api_info.get("owner_name") or api_info.get("nickname") or ""
+            if not room_name:
+                room_name = f"房间{room_id}"
+
         # 保存房间信息
         self.room_info[room_id] = {
-            "name": name or f"房间{room_id}",
+            "name": room_name,
             "added_by": event.get_sender_id(),
             "added_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             "at_all": False,  # 默认不开启 @全体成员
