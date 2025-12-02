@@ -206,7 +206,7 @@ A: 可能因主播频繁开关播或插件重启导致，属正常偶发现象�
 
 [![](https://www.gnu.org/graphics/agplv3-155x51.png "AGPL v3 logo")](https://www.gnu.org/licenses/agpl-3.0.txt)
 
-Copyright (C) 2022-2024 GEMILUXVII
+Copyright (C) 2025 GEMILUXVII
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
 
