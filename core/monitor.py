@@ -28,6 +28,7 @@ class DouyuMonitor:
         room_id: int,
         live_callback: Callable[[int, dict], None] | None = None,
         gift_callback: Callable[[int, dict], None] | None = None,
+        offline_callback: Callable[[int, float], None] | None = None,
     ):
         """初始化监控器
 
