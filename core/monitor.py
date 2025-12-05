@@ -94,9 +94,13 @@ class DouyuMonitor:
             if time_since_notify < self._notify_cooldown:
                 logger.debug(
                     f"斗鱼直播间 {self.room_id} 状态变化但在冷却期内 "
-                    f"({time_since_notify:.1f}s < {self._notify_cooldown}s)，忽略"
+                    f"({time_since_notify:.1f}s < {self._notify_cooldown}s)，延迟处理"
                 )
-                # 冷却期内不更新状态，保持原状态不变
+                # 冷却期内仍更新状态，但不发送通知
+                # 这样下次真正的状态变化不会被误判为"无变化"
+                self.last_live_status = is_live
+                if is_live:
+                    self.live_start_time = now
                 return
 
             if is_live and not self.last_live_status:
