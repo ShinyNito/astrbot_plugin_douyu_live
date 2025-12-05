@@ -220,8 +220,13 @@ class Main(star.Star):
 
         # 解析礼物信息
         user_name = msg.get("nn", "未知用户")
-        # 礼物数量可能在 gfcnt 或 hits 字段
-        gift_count = int(msg.get("gfcnt", msg.get("hits", "1")))
+        # 礼物数量可能在 gfcnt 或 hits 字段，添加异常处理
+        try:
+            gift_count_raw = msg.get("gfcnt", msg.get("hits", "1"))
+            gift_count = int(gift_count_raw) if gift_count_raw else 1
+        except (ValueError, TypeError):
+            logger.warning(f"礼物数量解析失败: {msg.get('gfcnt')}/{msg.get('hits')}，默认为 1")
+            gift_count = 1
 
         room_name = room_info.name
 
@@ -282,12 +287,19 @@ class Main(star.Star):
             yield event.plain_result(f"⚠️ 直播间 {room_id} 已在监控列表中")
             return
 
-        # 如果没有提供名称，尝试从 API 获取
+        # 验证房间是否存在，同时获取主播名称
         room_name = name
+        api_info = await DouyuAPI.fetch_room_info(room_id)
+        if not api_info:
+            yield event.plain_result(
+                f"⚠️ 无法获取直播间 {room_id} 的信息\n"
+                f"请检查房间号是否正确，或稍后重试"
+            )
+            return
+
+        # 如果没有提供名称，使用 API 获取的名称
         if not room_name:
-            room_name = await DouyuAPI.get_streamer_name(room_id)
-            if not room_name:
-                room_name = f"房间{room_id}"
+            room_name = api_info.get("owner_name") or api_info.get("nickname") or f"房间{room_id}"
 
         # 保存房间信息
         info = RoomInfo(
@@ -368,8 +380,14 @@ class Main(star.Star):
             yield event.plain_result(f"⚠️ 你已经订阅了直播间 {room_id}")
             return
 
+        # 检查监控状态并提示
+        is_running = room_id in self.monitors and self.monitors[room_id].running
+        status_tip = ""
+        if not is_running:
+            status_tip = "\n⚠️ 注意: 该直播间监控未运行，请联系管理员检查"
+
         yield event.plain_result(
-            f"✅ 订阅成功！\n直播间: {room_info.name}({room_id})\n开播时将在此处收到通知"
+            f"✅ 订阅成功！\n直播间: {room_info.name}({room_id})\n开播时将在此处收到通知{status_tip}"
         )
 
     @douyu.command("unsub")
