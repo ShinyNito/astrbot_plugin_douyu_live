@@ -459,20 +459,40 @@ class Main(star.Star):
                 yield event.plain_result(f"⚠️ 直播间 {room_id} 不在监控列表中")
                 return
 
-            self._stop_monitor(room_id)
-            if self._start_monitor(room_id):
+            # 先创建新监控器，成功后再停止旧的，减少通知丢失窗口
+            old_monitor = self.monitors.get(room_id)
+            new_monitor = DouyuMonitor(
+                room_id,
+                live_callback=self._on_live_start,
+                gift_callback=self._on_gift,
+                offline_callback=self._on_live_end,
+            )
+            if new_monitor.start():
+                # 新监控启动成功，停止旧监控
+                if old_monitor:
+                    old_monitor.stop()
+                self.monitors[room_id] = new_monitor
                 yield event.plain_result(f"✅ 直播间 {room_id} 监控已重启")
             else:
                 yield event.plain_result(f"❌ 直播间 {room_id} 监控重启失败")
         else:
             # 重启所有
-            for rid in list(self.monitors.keys()):
-                self._stop_monitor(rid)
-
             success = 0
-            for rid in self.data.room_info.keys():
-                if self._start_monitor(rid):
+            for rid in list(self.data.room_info.keys()):
+                old_monitor = self.monitors.get(rid)
+                new_monitor = DouyuMonitor(
+                    rid,
+                    live_callback=self._on_live_start,
+                    gift_callback=self._on_gift,
+                    offline_callback=self._on_live_end,
+                )
+                if new_monitor.start():
+                    if old_monitor:
+                        old_monitor.stop()
+                    self.monitors[rid] = new_monitor
                     success += 1
+                else:
+                    logger.warning(f"重启直播间 {rid} 监控失败")
 
             yield event.plain_result(
                 f"✅ 已重启 {success}/{len(self.data.room_info)} 个直播间监控"
