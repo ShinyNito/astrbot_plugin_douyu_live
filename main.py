@@ -15,6 +15,15 @@ from .storage import DataManager
 from .utils.constants import is_high_value_gift
 
 
+@dataclass
+class PendingNotification:
+    """待发送的通知"""
+    subscribers: set[str]
+    message: str
+    at_all: bool = False
+    retry_count: int = 0
+
+
 class Main(star.Star):
     """斗鱼直播开播通知插件
 
@@ -44,6 +53,10 @@ class Main(star.Star):
         self.notifier = Notifier(context)
         self.monitors: dict[int, DouyuMonitor] = {}
 
+        # 通知队列，用于事件循环不可用时缓存通知
+        self._notification_queue: Queue[PendingNotification] = Queue()
+        self._queue_processor_task: asyncio.Task | None = None
+
     async def initialize(self) -> None:
         """插件激活时启动所有监控"""
         # 保存主事件循环引用，用于子线程中的异步调用
@@ -56,6 +69,9 @@ class Main(star.Star):
             logger.error("pydouyu 库未安装，斗鱼直播通知插件无法正常工作")
             return
 
+        # 启动通知队列处理任务
+        self._queue_processor_task = asyncio.create_task(self._process_notification_queue())
+
         # 启动所有已保存房间的监控
         for room_id in self.data.room_info.keys():
             self._start_monitor(room_id)
@@ -64,6 +80,14 @@ class Main(star.Star):
 
     async def terminate(self) -> None:
         """插件禁用时停止所有监控"""
+        # 停止队列处理任务
+        if self._queue_processor_task:
+            self._queue_processor_task.cancel()
+            try:
+                await self._queue_processor_task
+            except asyncio.CancelledError:
+                pass
+
         for monitor in self.monitors.values():
             monitor.stop()
         self.monitors.clear()
@@ -94,6 +118,63 @@ class Main(star.Star):
             self.monitors[room_id].stop()
             del self.monitors[room_id]
 
+    async def _process_notification_queue(self) -> None:
+        """处理通知队列的后台任务"""
+        MAX_RETRIES = 5
+        while True:
+            try:
+                # 每秒检查一次队列
+                await asyncio.sleep(1)
+
+                # 处理队列中的所有通知
+                pending_items: list[PendingNotification] = []
+                while True:
+                    try:
+                        item = self._notification_queue.get_nowait()
+                        pending_items.append(item)
+                    except Empty:
+                        break
+
+                for item in pending_items:
+                    try:
+                        await self.notifier.send_to_subscribers(
+                            item.subscribers, item.message, item.at_all
+                        )
+                    except Exception as e:
+                        item.retry_count += 1
+                        if item.retry_count < MAX_RETRIES:
+                            # 放回队列稍后重试
+                            self._notification_queue.put(item)
+                            logger.warning(
+                                f"发送通知失败，将重试 ({item.retry_count}/{MAX_RETRIES}): {e}"
+                            )
+                        else:
+                            logger.error(f"发送通知失败，已达最大重试次数: {e}")
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"通知队列处理器出错: {e}")
+
+    def _schedule_notification(
+        self, subscribers: set[str], message: str, at_all: bool = False
+    ) -> None:
+        """安全地调度通知发送
+
+        如果事件循环可用，直接调度；否则放入队列稍后处理。
+        """
+        if self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                self.notifier.send_to_subscribers(subscribers, message, at_all),
+                self.loop,
+            )
+        else:
+            # 事件循环不可用，放入队列稍后处理
+            logger.warning("事件循环暂时不可用，通知已加入队列")
+            self._notification_queue.put(
+                PendingNotification(subscribers=subscribers, message=message, at_all=at_all)
+            )
+
     def _on_live_start(self, room_id: int, msg: dict) -> None:
         """开播回调 - 发送通知给所有订阅者"""
         subscribers = self.data.get_subscribers(room_id)
@@ -106,14 +187,8 @@ class Main(star.Star):
 
         notification = self.notifier.build_notification(room_id, room_name)
 
-        # 异步发送通知（从子线程调度到主事件循环）
-        if self.loop and self.loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                self.notifier.send_to_subscribers(subscribers, notification, at_all_enabled),
-                self.loop,
-            )
-        else:
-            logger.error("事件循环不可用，无法发送开播通知")
+        # 安全地调度通知发送
+        self._schedule_notification(subscribers, notification, at_all_enabled)
 
     def _on_gift(self, room_id: int, msg: dict) -> None:
         """礼物回调 - 发送礼物播报给所有订阅者
@@ -159,14 +234,8 @@ class Main(star.Star):
             gift_count=gift_count,
         )
 
-        # 异步发送通知（从子线程调度到主事件循环）
-        if self.loop and self.loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                self.notifier.send_to_subscribers(subscribers, notification, at_all=False),
-                self.loop,
-            )
-        else:
-            logger.error("事件循环不可用，无法发送礼物通知")
+        # 安全地调度通知发送
+        self._schedule_notification(subscribers, notification, at_all=False)
 
     def _on_live_end(self, room_id: int, duration_seconds: float) -> None:
         """下播回调 - 发送下播通知给所有订阅者
@@ -186,14 +255,8 @@ class Main(star.Star):
             room_id, room_name, duration_seconds
         )
 
-        # 异步发送通知（从子线程调度到主事件循环）
-        if self.loop and self.loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                self.notifier.send_to_subscribers(subscribers, notification, at_all=False),
-                self.loop,
-            )
-        else:
-            logger.error("事件循环不可用，无法发送下播通知")
+        # 安全地调度通知发送
+        self._schedule_notification(subscribers, notification, at_all=False)
 
     # ==================== 命令组 ====================
 
