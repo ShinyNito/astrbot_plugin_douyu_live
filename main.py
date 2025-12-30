@@ -11,7 +11,7 @@ from queue import Empty, Queue
 from astrbot.api import logger, star
 from astrbot.api.event import AstrMessageEvent, filter
 
-from .core import PYDOUYU_AVAILABLE, DouyuAPI, DouyuMonitor, Notifier
+from .core import DouyuAPI, DouyuMonitor, Notifier
 from .models import RoomInfo
 from .storage import DataManager
 from .utils.constants import is_high_value_gift
@@ -66,9 +66,7 @@ class Main(star.Star):
         except RuntimeError:
             self.loop = asyncio.get_event_loop()
 
-        if not PYDOUYU_AVAILABLE:
-            logger.error("pydouyu 库未安装，斗鱼直播通知插件无法正常工作")
-            return
+
 
         # 启动通知队列处理任务
         self._queue_processor_task = asyncio.create_task(self._process_notification_queue())
@@ -297,9 +295,7 @@ class Main(star.Star):
             room_id: 斗鱼直播间房间号
             name: 直播间名称（可选，不填则自动获取）
         """
-        if not PYDOUYU_AVAILABLE:
-            yield event.plain_result("❌ pydouyu 库未安装，请先安装: pip install pydouyu")
-            return
+
 
         if self.data.has_room(room_id):
             yield event.plain_result(f"⚠️ 直播间 {room_id} 已在监控列表中")
@@ -453,9 +449,7 @@ class Main(star.Star):
     @douyu.command("status")
     async def douyu_status(self, event: AstrMessageEvent):
         """查看监控状态"""
-        if not PYDOUYU_AVAILABLE:
-            yield event.plain_result("⚠️ pydouyu 库未安装\n请运行: pip install pydouyu")
-            return
+
 
         total_rooms = len(self.data.room_info)
         running = sum(1 for m in self.monitors.values() if m.running)
@@ -466,9 +460,7 @@ class Main(star.Star):
             f"━━━━━━━━━━━━━━\n"
             f"📺 监控直播间: {total_rooms}\n"
             f"🟢 运行中: {running}\n"
-            f"👥 总订阅数: {total_subs}\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"pydouyu: {'✅ 已安装' if PYDOUYU_AVAILABLE else '❌ 未安装'}"
+            f"👥 总订阅数: {total_subs}"
         )
 
     @douyu.command("restart")

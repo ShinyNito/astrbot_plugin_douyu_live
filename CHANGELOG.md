@@ -2,6 +2,21 @@
 
 本文件记录 `astrbot_plugin_douyu_live` 插件的版本更新历史。
 
+## [1.4.1] - 2025-12-30
+
+### 修复
+
+- 修复 `pydouyu` 导入异常被捕获导致 AstrBot 无法自动安装依赖的问题（[#1](https://github.com/GEMILUXVII/astrbot_plugin_douyu_live/issues/1)）
+  - 移除对 `pydouyu` 导入的 try-except 处理
+  - 当依赖缺失时，插件导入会失败，AstrBot 将自动读取 `requirements.txt` 并安装依赖
+
+### 变更
+
+- 移除 `PYDOUYU_AVAILABLE` 全局变量及相关检查逻辑
+- 更新 README.md，移除手动安装依赖的步骤说明
+
+---
+
 ## [1.4.0] - 2025-12-10
 
 ### 新增

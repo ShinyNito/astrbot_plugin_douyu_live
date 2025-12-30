@@ -11,7 +11,7 @@
 <br>
 
 <div align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-v1.3.0-9644F4?style=for-the-badge" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-v1.4.1-9644F4?style=for-the-badge" alt="Version"></a>
   <a href="https://github.com/GEMILUXVII/astrbot_plugin_douyu_live/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-E53935?style=for-the-badge" alt="License"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"></a>
   <a href="https://github.com/AstrBotDevs/AstrBot"><img src="https://img.shields.io/badge/AstrBot-Compatible-00BFA5?style=for-the-badge&logo=robot&logoColor=white" alt="AstrBot Compatible"></a>
@@ -51,13 +51,7 @@ AstrBot 斗鱼直播通知插件，支持多房间监控、订阅推送、@全�
 
 ## 安装与配置
 
-1. **安装依赖**
-
-   ```bash
-   pip install pydouyu httpx
-   ```
-
-2. **安装插件**
+1. **安装插件**
 
    将本插件目录放入 AstrBot 的 `data/plugins/` 目录下：
 
@@ -72,9 +66,9 @@ AstrBot 斗鱼直播通知插件，支持多房间监控、订阅推送、@全�
    └── utils/
    ```
 
-3. **重启/重载 AstrBot**
+2. **重启/重载 AstrBot**
 
-   在 WebUI 重载插件，或直接重启 AstrBot。
+   在 WebUI 重载插件，或直接重启 AstrBot。AstrBot 会自动安装所需依赖（`pydouyu`、`httpx`）。
 
 ## 命令列表
 
@@ -209,13 +203,9 @@ data/plugin_data/astrbot_plugin_douyu_live/douyu_live_data.json
 
 ## 常见问题
 
-### Q: 提示 "pydouyu 库未安装"
-
-A: 请运行 `pip install pydouyu` 安装依赖。
-
 ### Q: 监控启动失败
 
-A: 检查房间号是否正确、网络是否可用，并查看 AstrBot 日志获取详细错误。
+ A: 检查房间号是否正确、网络是否可用，并查看 AstrBot 日志获取详细错误。
 
 ### Q: @全体成员 不生效
 

@@ -6,14 +6,7 @@ from threading import Lock, Thread
 
 from astrbot.api import logger
 
-try:
-    from pydouyu.client import Client
-
-    PYDOUYU_AVAILABLE = True
-except ImportError:
-    PYDOUYU_AVAILABLE = False
-    Client = None
-    logger.warning("pydouyu 库未安装，请运行: pip install pydouyu")
+from pydouyu.client import Client
 
 
 class DouyuMonitor:
@@ -203,10 +196,6 @@ class DouyuMonitor:
         Returns:
             是否成功启动
         """
-        if not PYDOUYU_AVAILABLE:
-            logger.error("pydouyu 库未安装，无法启动监控")
-            return False
-
         if self.running:
             return True
 
