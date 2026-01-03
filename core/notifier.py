@@ -7,7 +7,7 @@ from astrbot.api import logger
 from astrbot.api.event import MessageEventResult
 from astrbot.api.message_components import AtAll, Plain
 
-from ..utils.constants import get_gift_name
+from ..utils.gift_config import get_gift_name
 
 if TYPE_CHECKING:
     from astrbot.api import star
@@ -182,4 +182,3 @@ class Notifier:
                         logger.error(
                             f"发送通知失败 ({umo})，已达最大重试次数: {e}"
                         )
-
