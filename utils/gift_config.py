@@ -7,7 +7,12 @@ import time
 
 import httpx
 
-from .constants import DEFAULT_GIFT_NAME, GIFT_NAMES, HIGH_VALUE_GIFT_IDS
+from .constants import (
+    DEFAULT_GIFT_NAME,
+    DEFAULT_HIGH_VALUE_THRESHOLD,
+    GIFT_NAMES,
+    HIGH_VALUE_GIFT_IDS,
+)
 
 GIFT_CONFIG_URL = (
     "https://webconf.douyucdn.cn/resource/common/prop_gift_list/prop_gift_config.json"
@@ -22,7 +27,7 @@ _ROOM_GIFT_NAME_CACHE: dict[int, dict[str, str]] = {}
 _ROOM_HIGH_VALUE_CACHE: dict[int, set[str]] = {}
 _ROOM_GIFT_VALUE_CACHE: dict[int, dict[str, int]] = {}
 _LAST_UPDATE_TS: float | None = None
-HIGH_VALUE_DEVOTE_THRESHOLD = 10000
+HIGH_VALUE_DEVOTE_THRESHOLD = DEFAULT_HIGH_VALUE_THRESHOLD
 
 
 def _strip_jsonp(payload: str) -> str:
@@ -221,7 +226,11 @@ def get_gift_name(gift_id: str | int, room_id: int | None = None) -> str:
 
 
 def is_high_value_gift(gift_id: str | int, room_id: int | None = None) -> bool:
-    """判断是否为高价值礼物（基于配置的 devote 值）"""
+    """判断是否为高价值礼物（基于配置的价值字段）"""
+    gift_value = get_gift_value(gift_id, room_id=room_id)
+    if gift_value is not None:
+        return gift_value >= HIGH_VALUE_DEVOTE_THRESHOLD
+
     if room_id is not None:
         room_high_value = _ROOM_HIGH_VALUE_CACHE.get(room_id)
         if room_high_value is not None:

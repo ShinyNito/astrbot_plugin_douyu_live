@@ -21,6 +21,9 @@ EMOJI_GIFT = "🎁"
 EMOJI_USER = "👤"
 EMOJI_COUNT = "🔢"
 
+# 高价值礼物默认过滤阈值
+DEFAULT_HIGH_VALUE_THRESHOLD = 10000
+
 # 斗鱼礼物 ID 到名称的映射（常见礼物）
 # 来源：斗鱼弹幕协议 dgb 消息
 GIFT_NAMES: dict[str, str] = {
@@ -96,4 +99,3 @@ def get_gift_name(gift_id: str | int) -> str:
         礼物名称
     """
     return GIFT_NAMES.get(str(gift_id), f"{DEFAULT_GIFT_NAME}({gift_id})")
-

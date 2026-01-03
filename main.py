@@ -17,10 +17,11 @@ from .storage import DataManager
 from .utils.gift_config import (
     get_cached_gift_count,
     get_room_cached_gift_count,
-    is_high_value_gift,
+    get_gift_value,
     update_gift_config,
     update_room_gift_config,
 )
+from .utils.constants import DEFAULT_HIGH_VALUE_THRESHOLD
 
 
 @dataclass
@@ -45,7 +46,7 @@ class Main(star.Star):
     - /douyu restart [房间号] - 重启监控（管理员）
     - /douyu atall <房间号> [on/off] - 设置@全体（管理员）
     - /douyu gift <房间号> [on/off] - 开启/关闭礼物播报（管理员）
-    - /douyu giftfilter <房间号> [on/off] - 开启/关闭高价值礼物过滤（管理员）
+    - /douyu giftfilter <房间号> [阈值/off] - 设置高价值礼物过滤阈值（管理员）
     - /douyu giftrefresh [房间号] - 刷新礼物配置缓存（管理员）
     """
 
@@ -248,8 +249,10 @@ class Main(star.Star):
             if not config.gift_notify:
                 continue
             # 如果开启了高价值过滤，只播报飞机及以上的礼物
-            if config.high_value_only and not is_high_value_gift(gift_id, room_id=room_id):
-                continue
+            if config.high_value_threshold is not None:
+                gift_value = get_gift_value(gift_id, room_id=room_id) or 0
+                if gift_value < config.high_value_threshold:
+                    continue
             gift_subscribers[umo] = False  # 礼物通知不 @全体
 
         if not gift_subscribers:
@@ -460,7 +463,10 @@ class Main(star.Star):
             if sub_config:
                 at_all_icon = "✅" if sub_config.at_all else "❌"
                 gift_icon = "✅" if sub_config.gift_notify else "❌"
-                filter_text = "仅高价值" if sub_config.high_value_only else "全部"
+                if sub_config.high_value_threshold is None:
+                    filter_text = "全部"
+                else:
+                    filter_text = f"≥{sub_config.high_value_threshold}"
                 my_subs.append(
                     f"• {room_name} ({room_id})\n"
                     f"  @全体:{at_all_icon} | 礼物:{gift_icon}({filter_text})"
@@ -618,7 +624,10 @@ class Main(star.Star):
         self.data.update_subscription_config(room_id, umo, gift_notify=new_status)
 
         status_text = "开启" if new_status else "关闭"
-        filter_status = "仅高价值" if sub_config.high_value_only else "全部"
+        if sub_config.high_value_threshold is None:
+            filter_status = "全部"
+        else:
+            filter_status = f"≥{sub_config.high_value_threshold}"
         yield event.plain_result(
             f"✅ 直播间 {room_info.name}({room_id})\n"
             f"当前群的 🎁 礼物播报 已{status_text}\n"
@@ -628,14 +637,14 @@ class Main(star.Star):
     @douyu.command("giftfilter")
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def douyu_giftfilter(self, event: AstrMessageEvent, room_id: int, enable: str = ""):
-        """开启/关闭当前群的高价值礼物过滤（管理员）
+        """设置当前群的高价值礼物过滤阈值（管理员）
 
-        开启后只播报飞机及以上的礼物，关闭后播报所有礼物。
+        传入数值表示只播报价值大于等于该阈值的礼物，传入 off 表示关闭过滤。
         此设置只对当前群生效，不影响其他订阅了同一直播间的群。
 
         Args:
             room_id: 斗鱼直播间房间号
-            enable: on/off 或留空切换状态
+            enable: 阈值/off 或留空切换状态
         """
         room_info = self.data.get_room(room_id)
         if not room_info:
@@ -651,26 +660,39 @@ class Main(star.Star):
             )
             return
 
-        current = sub_config.high_value_only
+        current_threshold = sub_config.high_value_threshold
+        new_threshold: int | None
 
-        if enable.lower() == "on":
-            new_status = True
-        elif enable.lower() == "off":
-            new_status = False
+        if enable.lower() == "off":
+            new_threshold = None
+        elif enable:
+            try:
+                new_threshold = max(0, int(float(enable)))
+            except (TypeError, ValueError):
+                yield event.plain_result("⚠️ 过滤阈值无效，请输入数字或 off")
+                return
         else:
-            new_status = not current
+            if current_threshold is None:
+                new_threshold = DEFAULT_HIGH_VALUE_THRESHOLD
+            else:
+                new_threshold = None
 
-        self.data.update_subscription_config(room_id, umo, high_value_only=new_status)
+        self.data.update_subscription_config(
+            room_id,
+            umo,
+            high_value_only=new_threshold is not None,
+            high_value_threshold=new_threshold,
+        )
 
-        if new_status:
+        if new_threshold is None:
             yield event.plain_result(
                 f"✅ 直播间 {room_info.name}({room_id})\n"
-                f"当前群的 🎁 礼物过滤: 仅播报高价值礼物（飞机及以上）"
+                f"当前群的 🎁 礼物过滤: 播报所有礼物"
             )
         else:
             yield event.plain_result(
                 f"✅ 直播间 {room_info.name}({room_id})\n"
-                f"当前群的 🎁 礼物过滤: 播报所有礼物"
+                f"当前群的 🎁 礼物过滤: 仅播报价值 ≥ {new_threshold} 的礼物"
             )
 
     @douyu.command("giftrefresh")

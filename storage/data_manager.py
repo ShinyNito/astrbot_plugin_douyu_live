@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from astrbot.api import logger
+
+from ..utils.constants import DEFAULT_HIGH_VALUE_THRESHOLD
 from astrbot.api.star import StarTools
 
 if TYPE_CHECKING:
@@ -78,6 +80,11 @@ class DataManager:
                                     at_all=room_info.at_all,
                                     gift_notify=room_info.gift_notify,
                                     high_value_only=room_info.high_value_only,
+                                    high_value_threshold=(
+                                        DEFAULT_HIGH_VALUE_THRESHOLD
+                                        if room_info.high_value_only
+                                        else None
+                                    ),
                                 )
                             else:
                                 self.subscriptions[room_id][umo] = SubConfigClass()
@@ -268,7 +275,7 @@ class DataManager:
         Args:
             room_id: 房间号
             umo: unified_msg_origin
-            **kwargs: 要更新的字段 (at_all, gift_notify, high_value_only)
+            **kwargs: 要更新的字段 (at_all, gift_notify, high_value_only, high_value_threshold)
 
         Returns:
             是否成功更新
