@@ -680,9 +680,17 @@ class Main(star.Star):
         if room_id is None:
             try:
                 gift_count = await asyncio.to_thread(update_gift_config)
+                room_updated = 0
+                for rid in self.data.room_info.keys():
+                    try:
+                        await asyncio.to_thread(update_room_gift_config, rid)
+                        room_updated += 1
+                    except Exception as exc:
+                        logger.warning(f"房间 {rid} 礼物配置刷新失败: {exc}")
                 yield event.plain_result(
                     f"✅ 礼物配置已刷新\n"
-                    f"📦 当前缓存礼物数量: {gift_count}"
+                    f"📦 当前缓存礼物数量: {gift_count}\n"
+                    f"🏠 已刷新 {room_updated}/{len(self.data.room_info)} 个房间礼物配置"
                 )
             except Exception as exc:
                 cached_count = get_cached_gift_count()

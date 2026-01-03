@@ -17,8 +17,10 @@ JSONP_PREFIX = "DYConfigCallback("
 
 _GIFT_NAME_CACHE: dict[str, str] = {}
 _HIGH_VALUE_GIFT_CACHE: set[str] = set(HIGH_VALUE_GIFT_IDS)
+_GIFT_VALUE_CACHE: dict[str, int] = {}
 _ROOM_GIFT_NAME_CACHE: dict[int, dict[str, str]] = {}
 _ROOM_HIGH_VALUE_CACHE: dict[int, set[str]] = {}
+_ROOM_GIFT_VALUE_CACHE: dict[int, dict[str, int]] = {}
 _LAST_UPDATE_TS: float | None = None
 HIGH_VALUE_DEVOTE_THRESHOLD = 10000
 
@@ -68,6 +70,20 @@ def _parse_high_value_gifts(data: dict) -> set[str]:
     return high_value
 
 
+def _parse_gift_values(data: dict) -> dict[str, int]:
+    values: dict[str, int] = {}
+    for gift_id, info in data.get("data", {}).items():
+        if not isinstance(info, dict):
+            continue
+        devote = info.get("devote")
+        try:
+            devote_value = int(float(devote)) if devote is not None else 0
+        except (TypeError, ValueError):
+            continue
+        values[str(gift_id)] = devote_value
+    return values
+
+
 def _parse_room_gift_mapping(data: dict) -> tuple[dict[str, str], set[str]]:
     gift_list = data.get("data", {}).get("gift", [])
     mapping: dict[str, str] = {}
@@ -92,6 +108,27 @@ def _parse_room_gift_mapping(data: dict) -> tuple[dict[str, str], set[str]]:
     return mapping, high_value
 
 
+def _parse_room_gift_values(data: dict) -> dict[str, int]:
+    gift_list = data.get("data", {}).get("gift", [])
+    values: dict[str, int] = {}
+    if not isinstance(gift_list, list):
+        return values
+
+    for gift in gift_list:
+        if not isinstance(gift, dict):
+            continue
+        gift_id = gift.get("id")
+        gift_value = gift.get("gx")
+        if not gift_id:
+            continue
+        try:
+            gift_value_int = int(float(gift_value)) if gift_value is not None else 0
+        except (TypeError, ValueError):
+            continue
+        values[str(gift_id)] = gift_value_int
+    return values
+
+
 def update_gift_config() -> int:
     """拉取斗鱼礼物配置并刷新缓存.
 
@@ -112,11 +149,15 @@ def update_gift_config() -> int:
 
     mapping = _parse_gift_mapping(data)
     high_value = _parse_high_value_gifts(data)
+    values = _parse_gift_values(data)
     if not mapping:
         raise ValueError("礼物配置响应中未包含礼物数据")
 
     _GIFT_NAME_CACHE.clear()
     _GIFT_NAME_CACHE.update(mapping)
+    if values:
+        _GIFT_VALUE_CACHE.clear()
+        _GIFT_VALUE_CACHE.update(values)
     if high_value:
         _HIGH_VALUE_GIFT_CACHE.clear()
         _HIGH_VALUE_GIFT_CACHE.update(high_value)
@@ -148,12 +189,21 @@ def update_room_gift_config(room_id: int) -> int:
         raise ValueError(f"房间礼物配置响应错误: {data.get('error')}")
 
     mapping, high_value = _parse_room_gift_mapping(data)
+    values = _parse_room_gift_values(data)
     if not mapping:
         raise ValueError("房间礼物配置响应中未包含礼物数据")
 
     _ROOM_GIFT_NAME_CACHE[room_id] = mapping
     if high_value:
         _ROOM_HIGH_VALUE_CACHE[room_id] = high_value
+    if values:
+        _ROOM_GIFT_VALUE_CACHE[room_id] = values
+
+    _GIFT_NAME_CACHE.update(mapping)
+    if high_value:
+        _HIGH_VALUE_GIFT_CACHE.update(high_value)
+    if values:
+        _GIFT_VALUE_CACHE.update(values)
 
     return len(mapping)
 
@@ -177,6 +227,16 @@ def is_high_value_gift(gift_id: str | int, room_id: int | None = None) -> bool:
         if room_high_value is not None:
             return str(gift_id) in room_high_value
     return str(gift_id) in _HIGH_VALUE_GIFT_CACHE
+
+
+def get_gift_value(gift_id: str | int, room_id: int | None = None) -> int | None:
+    """获取礼物价值（优先使用房间配置）"""
+    gift_key = str(gift_id)
+    if room_id is not None:
+        room_values = _ROOM_GIFT_VALUE_CACHE.get(room_id)
+        if room_values and gift_key in room_values:
+            return room_values[gift_key]
+    return _GIFT_VALUE_CACHE.get(gift_key)
 
 
 def get_cached_gift_count() -> int:
