@@ -86,7 +86,7 @@ class Notifier:
             timestamp = time.time()
 
         time_str = time.strftime("%H:%M:%S", time.localtime(timestamp))
-        gift_name = get_gift_name(gift_id)
+        gift_name = get_gift_name(gift_id, room_id=room_id)
 
         return (
             f"🎁 斗鱼直播礼物播报\n"

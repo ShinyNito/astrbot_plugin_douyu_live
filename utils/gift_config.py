@@ -12,10 +12,13 @@ from .constants import DEFAULT_GIFT_NAME, GIFT_NAMES, HIGH_VALUE_GIFT_IDS
 GIFT_CONFIG_URL = (
     "https://webconf.douyucdn.cn/resource/common/prop_gift_list/prop_gift_config.json"
 )
+ROOM_GIFT_CONFIG_URL = "http://open.douyucdn.cn/api/RoomApi/room/{room_id}"
 JSONP_PREFIX = "DYConfigCallback("
 
 _GIFT_NAME_CACHE: dict[str, str] = {}
 _HIGH_VALUE_GIFT_CACHE: set[str] = set(HIGH_VALUE_GIFT_IDS)
+_ROOM_GIFT_NAME_CACHE: dict[int, dict[str, str]] = {}
+_ROOM_HIGH_VALUE_CACHE: dict[int, set[str]] = {}
 _LAST_UPDATE_TS: float | None = None
 HIGH_VALUE_DEVOTE_THRESHOLD = 10000
 
@@ -65,6 +68,30 @@ def _parse_high_value_gifts(data: dict) -> set[str]:
     return high_value
 
 
+def _parse_room_gift_mapping(data: dict) -> tuple[dict[str, str], set[str]]:
+    gift_list = data.get("data", {}).get("gift", [])
+    mapping: dict[str, str] = {}
+    high_value: set[str] = set()
+    if not isinstance(gift_list, list):
+        return mapping, high_value
+
+    for gift in gift_list:
+        if not isinstance(gift, dict):
+            continue
+        gift_id = gift.get("id")
+        gift_name = gift.get("name")
+        if gift_id and gift_name:
+            mapping[str(gift_id)] = str(gift_name)
+        gift_value = gift.get("gx")
+        try:
+            gift_value_int = int(float(gift_value)) if gift_value is not None else 0
+        except (TypeError, ValueError):
+            continue
+        if gift_value_int >= HIGH_VALUE_DEVOTE_THRESHOLD and gift_id:
+            high_value.add(str(gift_id))
+    return mapping, high_value
+
+
 def update_gift_config() -> int:
     """拉取斗鱼礼物配置并刷新缓存.
 
@@ -100,22 +127,66 @@ def update_gift_config() -> int:
     return len(_GIFT_NAME_CACHE)
 
 
-def get_gift_name(gift_id: str | int) -> str:
+def update_room_gift_config(room_id: int) -> int:
+    """拉取房间/主播礼物配置并刷新缓存.
+
+    Returns:
+        加载到的房间礼物数量（如果拉取失败则抛异常）
+    """
+    response = httpx.get(ROOM_GIFT_CONFIG_URL.format(room_id=room_id), timeout=10.0)
+    response.raise_for_status()
+
+    if not response.text.strip():
+        raise ValueError("房间礼物配置响应为空")
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError as exc:
+        raise ValueError("房间礼物配置响应无法解析为 JSON") from exc
+
+    if data.get("error") != 0:
+        raise ValueError(f"房间礼物配置响应错误: {data.get('error')}")
+
+    mapping, high_value = _parse_room_gift_mapping(data)
+    if not mapping:
+        raise ValueError("房间礼物配置响应中未包含礼物数据")
+
+    _ROOM_GIFT_NAME_CACHE[room_id] = mapping
+    if high_value:
+        _ROOM_HIGH_VALUE_CACHE[room_id] = high_value
+
+    return len(mapping)
+
+
+def get_gift_name(gift_id: str | int, room_id: int | None = None) -> str:
     """获取礼物名称（优先使用在线配置）"""
     gift_key = str(gift_id)
+    if room_id is not None:
+        room_mapping = _ROOM_GIFT_NAME_CACHE.get(room_id)
+        if room_mapping and gift_key in room_mapping:
+            return room_mapping[gift_key]
     return _GIFT_NAME_CACHE.get(
         gift_key, GIFT_NAMES.get(gift_key, f"{DEFAULT_GIFT_NAME}({gift_id})")
     )
 
 
-def is_high_value_gift(gift_id: str | int) -> bool:
+def is_high_value_gift(gift_id: str | int, room_id: int | None = None) -> bool:
     """判断是否为高价值礼物（基于配置的 devote 值）"""
+    if room_id is not None:
+        room_high_value = _ROOM_HIGH_VALUE_CACHE.get(room_id)
+        if room_high_value is not None:
+            return str(gift_id) in room_high_value
     return str(gift_id) in _HIGH_VALUE_GIFT_CACHE
 
 
 def get_cached_gift_count() -> int:
     """获取当前缓存的礼物数量"""
     return len(_GIFT_NAME_CACHE)
+
+
+def get_room_cached_gift_count(room_id: int) -> int:
+    """获取房间缓存的礼物数量"""
+    return len(_ROOM_GIFT_NAME_CACHE.get(room_id, {}))
 
 
 def get_last_update_time() -> float | None:
