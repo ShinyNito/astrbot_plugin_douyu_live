@@ -20,8 +20,20 @@ _LAST_UPDATE_TS: float | None = None
 
 def _strip_jsonp(payload: str) -> str:
     payload = payload.strip()
-    if payload.startswith(JSONP_PREFIX) and payload.endswith(")"):
-        return payload[len(JSONP_PREFIX) : -1]
+    if not payload:
+        return payload
+    if payload.startswith(JSONP_PREFIX):
+        payload = payload[len(JSONP_PREFIX) :]
+
+    payload = payload.rstrip(";").strip()
+
+    if payload.endswith(")"):
+        return payload[:-1].strip()
+
+    start = payload.find("(")
+    end = payload.rfind(")")
+    if start != -1 and end != -1 and end > start:
+        return payload[start + 1 : end].strip()
     return payload
 
 
@@ -46,14 +58,22 @@ def update_gift_config() -> int:
     response.raise_for_status()
 
     raw_json = _strip_jsonp(response.text)
-    data = json.loads(raw_json)
+    if not raw_json:
+        raise ValueError("礼物配置响应为空")
+
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise ValueError("礼物配置响应无法解析为 JSON") from exc
 
     mapping = _parse_gift_mapping(data)
-    if mapping:
-        _GIFT_NAME_CACHE.clear()
-        _GIFT_NAME_CACHE.update(mapping)
-        global _LAST_UPDATE_TS
-        _LAST_UPDATE_TS = time.time()
+    if not mapping:
+        raise ValueError("礼物配置响应中未包含礼物数据")
+
+    _GIFT_NAME_CACHE.clear()
+    _GIFT_NAME_CACHE.update(mapping)
+    global _LAST_UPDATE_TS
+    _LAST_UPDATE_TS = time.time()
 
     return len(_GIFT_NAME_CACHE)
 
