@@ -14,7 +14,13 @@ from astrbot.api.event import AstrMessageEvent, filter
 from .core import DouyuAPI, DouyuMonitor, Notifier
 from .models import RoomInfo
 from .storage import DataManager
-from .utils.constants import is_high_value_gift
+from .utils.gift_config import (
+    get_cached_gift_count,
+    get_room_cached_gift_count,
+    is_high_value_gift,
+    update_gift_config,
+    update_room_gift_config,
+)
 
 
 @dataclass
@@ -40,6 +46,7 @@ class Main(star.Star):
     - /douyu atall <房间号> [on/off] - 设置@全体（管理员）
     - /douyu gift <房间号> [on/off] - 开启/关闭礼物播报（管理员）
     - /douyu giftfilter <房间号> [on/off] - 开启/关闭高价值礼物过滤（管理员）
+    - /douyu giftrefresh [房间号] - 刷新礼物配置缓存（管理员）
     """
 
     def __init__(self, context: star.Context) -> None:
@@ -66,7 +73,24 @@ class Main(star.Star):
         except RuntimeError:
             self.loop = asyncio.get_event_loop()
 
+        try:
+            gift_count = await asyncio.to_thread(update_gift_config)
+            logger.info(f"礼物配置已加载，共 {gift_count} 个礼物")
+        except Exception as exc:
+            cached_count = get_cached_gift_count()
+            logger.warning(
+                f"礼物配置加载失败，继续使用本地配置（已缓存 {cached_count} 个）: {exc}"
+            )
 
+        for room_id in self.data.room_info.keys():
+            try:
+                room_gift_count = await asyncio.to_thread(update_room_gift_config, room_id)
+                logger.info(f"房间 {room_id} 礼物配置已加载，共 {room_gift_count} 个礼物")
+            except Exception as exc:
+                cached_count = get_room_cached_gift_count(room_id)
+                logger.warning(
+                    f"房间 {room_id} 礼物配置加载失败，继续使用缓存（已缓存 {cached_count} 个）: {exc}"
+                )
 
         # 启动通知队列处理任务
         self._queue_processor_task = asyncio.create_task(self._process_notification_queue())
@@ -224,7 +248,7 @@ class Main(star.Star):
             if not config.gift_notify:
                 continue
             # 如果开启了高价值过滤，只播报飞机及以上的礼物
-            if config.high_value_only and not is_high_value_gift(gift_id):
+            if config.high_value_only and not is_high_value_gift(gift_id, room_id=room_id):
                 continue
             gift_subscribers[umo] = False  # 礼物通知不 @全体
 
@@ -649,3 +673,42 @@ class Main(star.Star):
                 f"当前群的 🎁 礼物过滤: 播报所有礼物"
             )
 
+    @douyu.command("giftrefresh")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def douyu_giftrefresh(self, event: AstrMessageEvent, room_id: int | None = None):
+        """刷新礼物配置缓存（管理员）"""
+        if room_id is None:
+            try:
+                gift_count = await asyncio.to_thread(update_gift_config)
+                room_updated = 0
+                for rid in self.data.room_info.keys():
+                    try:
+                        await asyncio.to_thread(update_room_gift_config, rid)
+                        room_updated += 1
+                    except Exception as exc:
+                        logger.warning(f"房间 {rid} 礼物配置刷新失败: {exc}")
+                yield event.plain_result(
+                    f"✅ 礼物配置已刷新\n"
+                    f"📦 当前缓存礼物数量: {gift_count}\n"
+                    f"🏠 已刷新 {room_updated}/{len(self.data.room_info)} 个房间礼物配置"
+                )
+            except Exception as exc:
+                cached_count = get_cached_gift_count()
+                yield event.plain_result(
+                    f"⚠️ 礼物配置刷新失败: {exc}\n"
+                    f"📦 当前缓存礼物数量: {cached_count}"
+                )
+            return
+
+        try:
+            gift_count = await asyncio.to_thread(update_room_gift_config, room_id)
+            yield event.plain_result(
+                f"✅ 房间 {room_id} 礼物配置已刷新\n"
+                f"📦 当前缓存礼物数量: {gift_count}"
+            )
+        except Exception as exc:
+            cached_count = get_room_cached_gift_count(room_id)
+            yield event.plain_result(
+                f"⚠️ 房间 {room_id} 礼物配置刷新失败: {exc}\n"
+                f"📦 当前缓存礼物数量: {cached_count}"
+            )
