@@ -7,7 +7,7 @@ from astrbot.api import logger
 from astrbot.api.event import MessageEventResult
 from astrbot.api.message_components import AtAll, Plain
 
-from ..utils.constants import get_gift_name
+from ..utils.gift_config import get_gift_name, get_gift_value
 
 if TYPE_CHECKING:
     from astrbot.api import star
@@ -86,14 +86,16 @@ class Notifier:
             timestamp = time.time()
 
         time_str = time.strftime("%H:%M:%S", time.localtime(timestamp))
-        gift_name = get_gift_name(gift_id)
+        gift_name = get_gift_name(gift_id, room_id=room_id)
+        gift_value = get_gift_value(gift_id, room_id=room_id)
+        gift_value_text = f"（价值: {gift_value}）" if gift_value is not None else ""
 
         return (
             f"🎁 斗鱼直播礼物播报\n"
             f"━━━━━━━━━━━━━━\n"
             f"📺 直播间: {room_name}\n"
             f"👤 用户: {user_name}\n"
-            f"🎁 礼物: {gift_name} x{gift_count}\n"
+            f"🎁 礼物: {gift_name} x{gift_count}{gift_value_text}\n"
             f"⏰ 时间: {time_str}"
         )
 
@@ -182,4 +184,3 @@ class Notifier:
                         logger.error(
                             f"发送通知失败 ({umo})，已达最大重试次数: {e}"
                         )
-
